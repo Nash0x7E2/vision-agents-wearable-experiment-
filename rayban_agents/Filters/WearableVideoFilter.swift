@@ -56,10 +56,11 @@ final class WearableVideoFilter: @unchecked Sendable {
             id: "wearable-camera",
             name: "Wearable Camera"
         ) { [weak self] input in
-            guard let self else { return input.originalImage }
+            guard let self else {
+                return CIImage(color: CIColor.black).cropped(to: input.originalImage.extent)
+            }
             
             if let wearableFrame = self.latestFrame {
-                // Scale wearable frame to match expected output size if needed
                 let scaledFrame = self.scaleToFit(
                     image: wearableFrame,
                     targetSize: input.originalImage.extent.size
@@ -67,8 +68,7 @@ final class WearableVideoFilter: @unchecked Sendable {
                 return scaledFrame
             }
             
-            // Fall back to original camera if no wearable frame available
-            return input.originalImage
+            return self.blackFrame(extent: input.originalImage.extent)
         }
     }
     
@@ -97,5 +97,9 @@ final class WearableVideoFilter: @unchecked Sendable {
         let offsetY = (targetSize.height - scaledSize.height) / 2
         
         return scaledImage.transformed(by: CGAffineTransform(translationX: offsetX, y: offsetY))
+    }
+    
+    private func blackFrame(extent: CGRect) -> CIImage {
+        CIImage(color: CIColor.black).cropped(to: extent)
     }
 }

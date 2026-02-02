@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		C69453BD2F301D4000B84437 /* MWDATCamera in Frameworks */ = {isa = PBXBuildFile; productRef = C69453BC2F301D4000B84437 /* MWDATCamera */; };
 		C69453BF2F301D4000B84437 /* MWDATCore in Frameworks */ = {isa = PBXBuildFile; productRef = C69453BE2F301D4000B84437 /* MWDATCore */; };
-		C69453C12F301D4000B84437 /* MWDATMockDevice in Frameworks */ = {isa = PBXBuildFile; productRef = C69453C02F301D4000B84437 /* MWDATMockDevice */; };
 		C69453C42F30200700B84437 /* StreamVideo in Frameworks */ = {isa = PBXBuildFile; productRef = C69453C32F30200700B84437 /* StreamVideo */; };
 		C69453C62F30200700B84437 /* StreamVideoSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = C69453C52F30200700B84437 /* StreamVideoSwiftUI */; };
 		C69453C82F30200700B84437 /* StreamVideoUIKit in Frameworks */ = {isa = PBXBuildFile; productRef = C69453C72F30200700B84437 /* StreamVideoUIKit */; };
@@ -63,7 +62,6 @@
 			files = (
 				C69453BD2F301D4000B84437 /* MWDATCamera in Frameworks */,
 				C69453C82F30200700B84437 /* StreamVideoUIKit in Frameworks */,
-				C69453C12F301D4000B84437 /* MWDATMockDevice in Frameworks */,
 				C69453C42F30200700B84437 /* StreamVideo in Frameworks */,
 				C69453C62F30200700B84437 /* StreamVideoSwiftUI in Frameworks */,
 				C69453BF2F301D4000B84437 /* MWDATCore in Frameworks */,
@@ -129,7 +127,6 @@
 			packageProductDependencies = (
 				C69453BC2F301D4000B84437 /* MWDATCamera */,
 				C69453BE2F301D4000B84437 /* MWDATCore */,
-				C69453C02F301D4000B84437 /* MWDATMockDevice */,
 				C69453C32F30200700B84437 /* StreamVideo */,
 				C69453C52F30200700B84437 /* StreamVideoSwiftUI */,
 				C69453C72F30200700B84437 /* StreamVideoUIKit */,
@@ -630,10 +627,6 @@
 		C69453BE2F301D4000B84437 /* MWDATCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MWDATCore;
-		};
-		C69453C02F301D4000B84437 /* MWDATMockDevice */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MWDATMockDevice;
 		};
 		C69453C32F30200700B84437 /* StreamVideo */ = {
 			isa = XCSwiftPackageProductDependency;

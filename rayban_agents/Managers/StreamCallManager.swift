@@ -87,13 +87,22 @@ final class StreamCallManager {
                 options: [.allowBluetooth, .allowBluetoothA2DP]
             )
             try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-            print("Audio session configured for Bluetooth")
-            
-            // Wait for HFP to be ready before streaming (per Meta docs)
+            setPreferredInputToWearable(audioSession: audioSession)
             try await Task.sleep(nanoseconds: 2 * NSEC_PER_SEC)
         } catch {
             print("Failed to configure audio session: \(error)")
             self.error = error
+        }
+    }
+    
+    private func setPreferredInputToWearable(audioSession: AVAudioSession) {
+        guard let inputs = audioSession.availableInputs else { return }
+        let wearable = inputs.first { $0.portType == .bluetoothHFP }
+        guard let wearable else { return }
+        do {
+            try audioSession.setPreferredInput(wearable)
+        } catch {
+            print("Failed to set preferred input to wearable: \(error)")
         }
     }
     
@@ -114,6 +123,7 @@ final class StreamCallManager {
         }
         
         do {
+            setPreferredInputToWearable(audioSession: AVAudioSession.sharedInstance())
             try await newCall.join(create: true)
             await MainActor.run {
                 self.isInCall = true

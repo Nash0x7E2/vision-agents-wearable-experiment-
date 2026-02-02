@@ -16,8 +16,8 @@ final class WearablesManager {
     
     // MARK: - Published State
     
-    private(set) var registrationState: RegistrationState = .notRegistered
-    private(set) var devices: [Device] = []
+    private(set) var registrationState: RegistrationState = .available
+    private(set) var deviceIdentifiers: [DeviceIdentifier] = []
     private(set) var streamState: StreamSessionState = .stopped
     private(set) var cameraPermissionStatus: PermissionStatus = .denied
     private(set) var latestFrame: UIImage?
@@ -26,8 +26,8 @@ final class WearablesManager {
     // MARK: - Private Properties
     
     private var streamSession: StreamSession?
-    private var stateToken: ListenerToken?
-    private var frameToken: ListenerToken?
+    private var stateToken: AnyListenerToken?
+    private var frameToken: AnyListenerToken?
     private var registrationTask: Task<Void, Never>?
     private var devicesTask: Task<Void, Never>?
     
@@ -38,7 +38,7 @@ final class WearablesManager {
     }
     
     var hasConnectedDevice: Bool {
-        !devices.isEmpty
+        !deviceIdentifiers.isEmpty
     }
     
     var latestFrameAsCIImage: CIImage? {
@@ -53,30 +53,38 @@ final class WearablesManager {
     // MARK: - Configuration
     
     func configure() {
-        do {
-            try Wearables.configure()
-            observeRegistrationState()
-            observeDevices()
-        } catch {
-            print("Failed to configure Wearables SDK: \(error)")
+        Task(priority: .utility) {
+            do {
+                try Wearables.configure()
+                await MainActor.run {
+                    observeRegistrationState()
+                    observeDevices()
+                }
+            } catch {
+                print("Failed to configure Wearables SDK: \(error)")
+            }
         }
     }
-    
+
     // MARK: - Registration
-    
+
     func startRegistration() {
-        do {
-            try Wearables.shared.startRegistration()
-        } catch {
-            print("Failed to start registration: \(error)")
+        Task(priority: .utility) {
+            do {
+                try Wearables.shared.startRegistration()
+            } catch {
+                print("Failed to start registration: \(error)")
+            }
         }
     }
-    
+
     func startUnregistration() {
-        do {
-            try Wearables.shared.startUnregistration()
-        } catch {
-            print("Failed to start unregistration: \(error)")
+        Task(priority: .utility) {
+            do {
+                try Wearables.shared.startUnregistration()
+            } catch {
+                print("Failed to start unregistration: \(error)")
+            }
         }
     }
     
@@ -111,48 +119,62 @@ final class WearablesManager {
     // MARK: - Camera Streaming
     
     func startCameraStream() async {
+        await Task(priority: .utility) {
+            await startCameraStreamOnBackground()
+        }.value
+    }
+
+    private func startCameraStreamOnBackground() async {
         guard streamSession == nil else {
             print("Stream session already exists")
             return
         }
-        
+
         let deviceSelector = AutoDeviceSelector(wearables: Wearables.shared)
         let config = StreamSessionConfig(
             videoCodec: .raw,
             resolution: .low,
             frameRate: 24
         )
-        
+
         let session = StreamSession(streamSessionConfig: config, deviceSelector: deviceSelector)
         streamSession = session
-        
+
         stateToken = session.statePublisher.listen { [weak self] state in
             Task { @MainActor in
                 self?.streamState = state
                 self?.isStreaming = (state == .streaming)
             }
         }
-        
+
         frameToken = session.videoFramePublisher.listen { [weak self] frame in
             guard let image = frame.makeUIImage() else { return }
             Task { @MainActor in
                 self?.latestFrame = image
             }
         }
-        
+
         await session.start()
     }
-    
+
     func stopCameraStream() async {
+        await Task(priority: .utility) {
+            await stopCameraStreamOnBackground()
+        }.value
+    }
+
+    private func stopCameraStreamOnBackground() async {
         guard let session = streamSession else { return }
-        
+
         await session.stop()
-        
-        stateToken = nil
-        frameToken = nil
-        streamSession = nil
-        isStreaming = false
-        latestFrame = nil
+
+        await MainActor.run {
+            stateToken = nil
+            frameToken = nil
+            streamSession = nil
+            isStreaming = false
+            latestFrame = nil
+        }
     }
     
     func capturePhoto() {
@@ -177,7 +199,7 @@ final class WearablesManager {
         devicesTask = Task {
             for await deviceList in Wearables.shared.devicesStream() {
                 await MainActor.run {
-                    self.devices = deviceList
+                    self.deviceIdentifiers = deviceList
                 }
             }
         }

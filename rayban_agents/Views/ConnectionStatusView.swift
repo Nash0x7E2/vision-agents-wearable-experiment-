@@ -34,8 +34,8 @@ struct ConnectionStatusView: View {
             )
             
             // Device List
-            if !wearablesManager.devices.isEmpty {
-                DeviceListSection(devices: wearablesManager.devices)
+            if !wearablesManager.deviceIdentifiers.isEmpty {
+                DeviceListSection(identifiers: wearablesManager.deviceIdentifiers)
             }
         }
         .padding()
@@ -45,17 +45,17 @@ struct ConnectionStatusView: View {
     
     private var wearablesStatusText: String {
         switch wearablesManager.registrationState {
-        case .notRegistered:
+        case .unavailable:
+            return "Not Available"
+        case .available:
             return "Not Registered"
-        case .registrationPending:
+        case .registering:
             return "Registering..."
         case .registered:
             if wearablesManager.hasConnectedDevice {
                 return "Connected"
             }
             return "Registered (No Device)"
-        case .unregistrationPending:
-            return "Unregistering..."
         @unknown default:
             return "Unknown"
         }
@@ -63,9 +63,9 @@ struct ConnectionStatusView: View {
     
     private var wearablesStatusColor: Color {
         switch wearablesManager.registrationState {
-        case .notRegistered:
+        case .unavailable, .available:
             return .secondary
-        case .registrationPending, .unregistrationPending:
+        case .registering:
             return .orange
         case .registered:
             return wearablesManager.hasConnectedDevice ? .green : .yellow
@@ -76,7 +76,7 @@ struct ConnectionStatusView: View {
     
     private var wearablesAction: (() -> Void)? {
         switch wearablesManager.registrationState {
-        case .notRegistered:
+        case .available:
             return onRegister
         case .registered:
             return { wearablesManager.startUnregistration() }
@@ -162,19 +162,19 @@ private struct StatusCard: View {
 // MARK: - Device List
 
 private struct DeviceListSection: View {
-    let devices: [Device]
+    let identifiers: [DeviceIdentifier]
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Connected Devices")
                 .font(.headline)
             
-            ForEach(devices, id: \.id) { device in
+            ForEach(identifiers, id: \.self) { identifier in
                 HStack {
                     Image(systemName: "eyeglasses")
                         .foregroundStyle(.blue)
                     
-                    Text(device.name)
+                    Text(identifier)
                         .font(.subheadline)
                     
                     Spacer()
