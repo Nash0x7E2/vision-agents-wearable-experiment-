@@ -31,31 +31,43 @@ final class StreamCallManager {
     // MARK: - Private Properties
     
     private var videoFilter: VideoFilter?
-    
+    private weak var wearablesManager: WearablesManager?
+    private var wearableFrameSink: (any ExternalFrameSink)?
+    private var framePumpTask: Task<Void, Never>?
+
     // MARK: - Initialization
-    
+
     init() {}
-    
+
     // MARK: - Setup
-    
-    func setup() async {
+
+    func setup(wearablesManager: WearablesManager? = nil) async {
+        self.wearablesManager = wearablesManager
         await setupAudioSession()
         setupStreamVideo()
     }
-    
+
     private func setupStreamVideo() {
         let user = User(
             id: Secrets.streamUserId,
             name: "Wearables User",
             imageURL: nil
         )
-        
+
         let token = UserToken(rawValue: Secrets.streamUserToken)
-        
+
+        let customProvider = ExternalVideoCapturerProvider { [weak self] frameSink in
+            Task { @MainActor in
+                self?.onWearableFrameSinkReady(frameSink)
+            }
+        }
+        let videoConfig = VideoConfig(customVideoCapturerProvider: customProvider)
+
         streamVideo = StreamVideo(
             apiKey: Secrets.streamApiKey,
             user: user,
             token: token,
+            videoConfig: videoConfig,
             tokenProvider: { result in
                 result(.success(token))
             }
@@ -156,9 +168,8 @@ final class StreamCallManager {
 
     func leaveCall() async {
         guard let call else { return }
-        
+        stopWearableFramePump()
         call.leave()
-        
         await MainActor.run {
             self.call = nil
             self.isInCall = false
@@ -168,7 +179,7 @@ final class StreamCallManager {
     
     func endCall() async {
         guard let call else { return }
-        
+        stopWearableFramePump()
         do {
             try await call.end()
             await MainActor.run {
@@ -231,21 +242,51 @@ final class StreamCallManager {
     }
     
     // MARK: - Video Filter
-    
+
     func setVideoFilter(_ filter: VideoFilter?) {
         videoFilter = filter
         call?.setVideoFilter(filter)
     }
-    
+
+    // MARK: - Wearable Frame Pump
+
+    private func onWearableFrameSinkReady(_ frameSink: some ExternalFrameSink) {
+        wearableFrameSink = frameSink
+        startWearableFramePump()
+    }
+
+    private func startWearableFramePump() {
+        guard wearableFrameSink != nil, let wm = wearablesManager else { return }
+        framePumpTask?.cancel()
+        framePumpTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let sink = self?.wearableFrameSink,
+                      let ciImage = wm.latestFrameAsCIImage,
+                      let pixelBuffer = WearableFramePump.makePixelBuffer(from: ciImage, resolution: wm.wearableVideoQuality)
+                else {
+                    try? await Task.sleep(nanoseconds: 33_000_000)
+                    continue
+                }
+                sink.pushFrame(pixelBuffer: pixelBuffer, rotation: .none)
+                try? await Task.sleep(nanoseconds: 33_000_000)
+            }
+        }
+    }
+
+    private func stopWearableFramePump() {
+        framePumpTask?.cancel()
+        framePumpTask = nil
+        wearableFrameSink = nil
+    }
+
     // MARK: - Cleanup
-    
+
     func disconnect() async {
+        stopWearableFramePump()
         if isInCall {
             await leaveCall()
         }
-        
         await streamVideo?.disconnect()
-        
         await MainActor.run {
             self.streamVideo = nil
             self.isConnected = false

@@ -8,6 +8,7 @@
 
 import Foundation
 import SwiftUI
+import Photos
 import MWDATCore
 import MWDATCamera
 
@@ -22,12 +23,15 @@ final class WearablesManager {
     private(set) var cameraPermissionStatus: PermissionStatus = .denied
     private(set) var latestFrame: UIImage?
     private(set) var isStreaming = false
-    
+    private(set) var wearableVideoQuality: StreamingResolution = .low
+    private(set) var lastCaptureSaveResult: Bool?
+
     // MARK: - Private Properties
     
     private var streamSession: StreamSession?
     private var stateToken: AnyListenerToken?
     private var frameToken: AnyListenerToken?
+    private var photoDataToken: AnyListenerToken?
     private var registrationTask: Task<Void, Never>?
     private var devicesTask: Task<Void, Never>?
     
@@ -133,7 +137,7 @@ final class WearablesManager {
         let deviceSelector = AutoDeviceSelector(wearables: Wearables.shared)
         let config = StreamSessionConfig(
             videoCodec: .raw,
-            resolution: .low,
+            resolution: wearableVideoQuality,
             frameRate: 24
         )
 
@@ -154,6 +158,15 @@ final class WearablesManager {
             }
         }
 
+        photoDataToken = session.photoDataPublisher.listen { [weak self] photoData in
+            Task {
+                let success = await self?.savePhotoDataToPhotos(photoData) ?? false
+                await MainActor.run {
+                    self?.lastCaptureSaveResult = success
+                }
+            }
+        }
+
         await session.start()
     }
 
@@ -171,16 +184,69 @@ final class WearablesManager {
         await MainActor.run {
             stateToken = nil
             frameToken = nil
+            photoDataToken = nil
             streamSession = nil
             isStreaming = false
             latestFrame = nil
         }
     }
-    
-    func capturePhoto() {
-        streamSession?.capturePhoto(format: .jpeg)
+
+    func capturePhoto() -> Bool {
+        guard let session = streamSession else { return false }
+        let accepted = session.capturePhoto(format: .jpeg)
+        if !accepted {
+            lastCaptureSaveResult = false
+        }
+        return accepted
     }
-    
+
+    func clearLastCaptureSaveResult() {
+        lastCaptureSaveResult = nil
+    }
+
+    private func savePhotoDataToPhotos(_ photoData: PhotoData) async -> Bool {
+        guard let image = UIImage(data: photoData.data) else { return false }
+        return await withCheckedContinuation { continuation in
+            PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+                guard status == .authorized || status == .limited else {
+                    continuation.resume(returning: false)
+                    return
+                }
+                PHPhotoLibrary.shared().performChanges {
+                    PHAssetChangeRequest.creationRequestForAsset(from: image)
+                } completionHandler: { success, _ in
+                    continuation.resume(returning: success)
+                }
+            }
+        }
+    }
+
+    func saveCurrentFrameToPhotos() async -> Bool {
+        guard let image = latestFrame else { return false }
+        return await withCheckedContinuation { continuation in
+            PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+                guard status == .authorized || status == .limited else {
+                    continuation.resume(returning: false)
+                    return
+                }
+                PHPhotoLibrary.shared().performChanges {
+                    PHAssetChangeRequest.creationRequestForAsset(from: image)
+                } completionHandler: { success, _ in
+                    continuation.resume(returning: success)
+                }
+            }
+        }
+    }
+
+    func updateVideoQuality(_ resolution: StreamingResolution) async {
+        await MainActor.run {
+            wearableVideoQuality = resolution
+        }
+        guard isStreaming else { return }
+        await stopCameraStream()
+        await startCameraStream()
+    }
+
     // MARK: - Private Methods
     
     private func observeRegistrationState() {
@@ -212,6 +278,7 @@ final class WearablesManager {
         devicesTask?.cancel()
         stateToken = nil
         frameToken = nil
+        photoDataToken = nil
         streamSession = nil
     }
 }

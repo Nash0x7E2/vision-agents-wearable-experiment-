@@ -52,6 +52,8 @@
   <string>Camera access is required for video calls</string>
   <key>NSMicrophoneUsageDescription</key>
   <string>Microphone access is required for audio in video calls</string>
+  <key>NSPhotoLibraryAddUsageDescription</key>
+  <string>Save photos taken from your glasses to your photo library</string>
 
   <!-- Wearables Device Access Toolkit configuration -->
   <key>MWDAT</key>

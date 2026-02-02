@@ -13,7 +13,7 @@ struct CallView: View {
     let wearablesManager: WearablesManager
     let streamManager: StreamCallManager
     let onLeaveCall: () async -> Void
-    
+
     var body: some View {
         GeometryReader { geometry in
             ZStack {
@@ -31,6 +31,27 @@ struct CallView: View {
                     }
                 }
                 
+                if let result = wearablesManager.lastCaptureSaveResult {
+                    VStack {
+                        Spacer()
+                        Text(result ? "Saved to Photos" : "Unable to save")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(.ultraThinMaterial, in: Capsule())
+                        Spacer()
+                            .frame(height: 120)
+                    }
+                    .allowsHitTesting(false)
+                    .onAppear {
+                        Task {
+                            try? await Task.sleep(for: .seconds(2))
+                            await MainActor.run { wearablesManager.clearLastCaptureSaveResult() }
+                        }
+                    }
+                }
+
                 // Overlay UI
                 VStack {
                     // Top Bar
@@ -46,6 +67,7 @@ struct CallView: View {
                         isMicrophoneEnabled: streamManager.isMicrophoneEnabled,
                         isCameraEnabled: streamManager.isCameraEnabled,
                         isStreaming: wearablesManager.isStreaming,
+                        wearableVideoQuality: wearablesManager.wearableVideoQuality,
                         onToggleMic: {
                             Task { await streamManager.toggleMicrophone() }
                         },
@@ -55,11 +77,14 @@ struct CallView: View {
                         onToggleWearableStream: {
                             Task { await toggleWearableStream() }
                         },
+                        onUpdateVideoQuality: { resolution in
+                            Task { await wearablesManager.updateVideoQuality(resolution) }
+                        },
                         onEndCall: {
                             Task { await onLeaveCall() }
                         },
                         onCapturePhoto: {
-                            wearablesManager.capturePhoto()
+                            _ = wearablesManager.capturePhoto()
                         }
                     )
                     .padding(.bottom, geometry.safeAreaInsets.bottom + 20)

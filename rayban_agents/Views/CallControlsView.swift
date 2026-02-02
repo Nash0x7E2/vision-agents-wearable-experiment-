@@ -6,16 +6,28 @@
 //
 
 import SwiftUI
+import MWDATCamera
 
 struct CallControlsView: View {
     let isMicrophoneEnabled: Bool
     let isCameraEnabled: Bool
     let isStreaming: Bool
+    let wearableVideoQuality: StreamingResolution
     let onToggleMic: () -> Void
     let onToggleCamera: () -> Void
     let onToggleWearableStream: () -> Void
+    let onUpdateVideoQuality: (StreamingResolution) -> Void
     let onEndCall: () -> Void
     let onCapturePhoto: () -> Void
+
+    private var qualityLabel: String {
+        switch wearableVideoQuality {
+        case .low: return "Low"
+        case .medium: return "Medium"
+        case .high: return "High"
+        @unknown default: return "Quality"
+        }
+    }
     
     var body: some View {
         HStack(spacing: 20) {
@@ -52,6 +64,24 @@ struct CallControlsView: View {
                 activeColor: .orange,
                 action: onCapturePhoto
             )
+
+            // Video quality (wearable)
+            Menu {
+                Button("Low (360×640)") { onUpdateVideoQuality(.low) }
+                Button("Medium (504×896)") { onUpdateVideoQuality(.medium) }
+                Button("High (720×1280)") { onUpdateVideoQuality(.high) }
+            } label: {
+                VStack(spacing: 6) {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.title2)
+                        .frame(width: 50, height: 50)
+                        .background(Circle().fill(Color.secondary.opacity(0.1)))
+                    Text("\(qualityLabel)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .foregroundStyle(.primary)
+            }
             
             // End Call
             ControlButton(
@@ -110,9 +140,11 @@ private struct ControlButton: View {
         isMicrophoneEnabled: true,
         isCameraEnabled: true,
         isStreaming: false,
+        wearableVideoQuality: .medium,
         onToggleMic: {},
         onToggleCamera: {},
         onToggleWearableStream: {},
+        onUpdateVideoQuality: { _ in },
         onEndCall: {},
         onCapturePhoto: {}
     )

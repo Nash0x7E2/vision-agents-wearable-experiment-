@@ -2,6 +2,10 @@
 
 To send **only** wearable video (no iPhone camera) over WebRTC, the Stream Video Swift SDK must use a custom video source fed by wearable frames instead of the device camera. The SDK does not expose this today; it can be added by forking and patching.
 
+## Implementation status
+
+This app **depends on a local fork** of stream-video-swift (e.g. `../stream-video-swift`). The Xcode project references the local package. The fork adds: `VideoConfig.customVideoCapturerProvider`, use of that provider when creating `LocalVideoMediaAdapter`, `ExternalVideoCapturerProvider`, `ExternalFrameSink`, and `StreamVideoCapturer.externalSourceCapturer`. The app uses `ExternalVideoCapturerProvider` and a frame pump that pushes `WearablesManager.latestFrame` into the sink at ~30 fps. The wearable video filter is no longer used on the call path; frames are pushed directly.
+
 ## Current behavior
 
 - We join with `CallSettings(audioOn: true, videoOn: false)` then call `camera.enable()`. The SDK still uses the **device camera** as the frame source and runs our `VideoFilter` (wearable or black). So the pipeline is still camera-driven.

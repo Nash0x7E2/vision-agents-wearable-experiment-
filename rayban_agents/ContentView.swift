@@ -12,11 +12,8 @@ import MWDATCamera
 struct ContentView: View {
     @State private var wearablesManager = WearablesManager()
     @State private var streamManager = StreamCallManager()
-    @State private var videoFilter = WearableVideoFilter()
-    
     @State private var callId = ""
     @State private var showingCall = false
-    @State private var frameUpdateTask: Task<Void, Never>?
     
     var body: some View {
         NavigationStack {
@@ -130,9 +127,8 @@ struct ContentView: View {
     
     private func setupManagers() {
         wearablesManager.configure()
-        
         Task {
-            await streamManager.setup()
+            await streamManager.setup(wearablesManager: wearablesManager)
             await wearablesManager.checkCameraPermission()
             
             if wearablesManager.cameraPermissionStatus != .granted {
@@ -142,49 +138,25 @@ struct ContentView: View {
     }
     
     private func startCall() async {
-        streamManager.setVideoFilter(videoFilter.makeVideoFilter())
-        startFrameForwarding()
-
+        streamManager.setVideoFilter(nil)
         await wearablesManager.startCameraStream()
         await streamManager.createAndJoinCall(callId: callId)
         await streamManager.enableCameraWithWearableFilter()
-
         await MainActor.run {
             showingCall = true
         }
     }
-    
+
     private func leaveCall() async {
         await wearablesManager.stopCameraStream()
         await streamManager.leaveCall()
-        
-        stopFrameForwarding()
-        
         await MainActor.run {
             showingCall = false
             callId = ""
         }
     }
-    
-    private func startFrameForwarding() {
-        frameUpdateTask = Task {
-            while !Task.isCancelled {
-                if let frame = wearablesManager.latestFrameAsCIImage {
-                    videoFilter.updateFrame(frame)
-                }
-                try? await Task.sleep(nanoseconds: 33_000_000) // ~30 FPS
-            }
-        }
-    }
-    
-    private func stopFrameForwarding() {
-        frameUpdateTask?.cancel()
-        frameUpdateTask = nil
-        videoFilter.updateFrame(nil as CIImage?)
-    }
-    
+
     private func cleanup() {
-        stopFrameForwarding()
         wearablesManager.cleanup()
         Task {
             await streamManager.disconnect()

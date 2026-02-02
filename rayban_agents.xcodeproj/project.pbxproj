@@ -215,7 +215,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				C69453BB2F301D4000B84437 /* XCLocalSwiftPackageReference "../meta-wearables-dat-ios-0.3.0" */,
-				C69453C22F30200700B84437 /* XCRemoteSwiftPackageReference "stream-video-swift" */,
+				C69453C22F30200700B84437 /* XCLocalSwiftPackageReference "../stream-video-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C67DA04B2F30168F0087C603 /* Products */;
@@ -606,18 +606,11 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "../meta-wearables-dat-ios-0.3.0";
 		};
-/* End XCLocalSwiftPackageReference section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		C69453C22F30200700B84437 /* XCRemoteSwiftPackageReference "stream-video-swift" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/GetStream/stream-video-swift.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.40.0;
-			};
+		C69453C22F30200700B84437 /* XCLocalSwiftPackageReference "../stream-video-swift" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../stream-video-swift";
 		};
-/* End XCRemoteSwiftPackageReference section */
+/* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		C69453BC2F301D4000B84437 /* MWDATCamera */ = {
@@ -630,17 +623,17 @@
 		};
 		C69453C32F30200700B84437 /* StreamVideo */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = C69453C22F30200700B84437 /* XCRemoteSwiftPackageReference "stream-video-swift" */;
+			package = C69453C22F30200700B84437 /* XCLocalSwiftPackageReference "../stream-video-swift" */;
 			productName = StreamVideo;
 		};
 		C69453C52F30200700B84437 /* StreamVideoSwiftUI */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = C69453C22F30200700B84437 /* XCRemoteSwiftPackageReference "stream-video-swift" */;
+			package = C69453C22F30200700B84437 /* XCLocalSwiftPackageReference "../stream-video-swift" */;
 			productName = StreamVideoSwiftUI;
 		};
 		C69453C72F30200700B84437 /* StreamVideoUIKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = C69453C22F30200700B84437 /* XCRemoteSwiftPackageReference "stream-video-swift" */;
+			package = C69453C22F30200700B84437 /* XCLocalSwiftPackageReference "../stream-video-swift" */;
 			productName = StreamVideoUIKit;
 		};
 /* End XCSwiftPackageProductDependency section */
