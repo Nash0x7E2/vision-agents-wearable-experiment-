@@ -9,9 +9,8 @@
 /* Begin PBXBuildFile section */
 		C69453BD2F301D4000B84437 /* MWDATCamera in Frameworks */ = {isa = PBXBuildFile; productRef = C69453BC2F301D4000B84437 /* MWDATCamera */; };
 		C69453BF2F301D4000B84437 /* MWDATCore in Frameworks */ = {isa = PBXBuildFile; productRef = C69453BE2F301D4000B84437 /* MWDATCore */; };
-		C69453C42F30200700B84437 /* StreamVideo in Frameworks */ = {isa = PBXBuildFile; productRef = C69453C32F30200700B84437 /* StreamVideo */; };
-		C69453C62F30200700B84437 /* StreamVideoSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = C69453C52F30200700B84437 /* StreamVideoSwiftUI */; };
-		C69453C82F30200700B84437 /* StreamVideoUIKit in Frameworks */ = {isa = PBXBuildFile; productRef = C69453C72F30200700B84437 /* StreamVideoUIKit */; };
+		C6AF27BD2F328C3B0014DC89 /* StreamVideo in Frameworks */ = {isa = PBXBuildFile; productRef = C6AF27BC2F328C3B0014DC89 /* StreamVideo */; };
+		C6AF27BF2F328C3B0014DC89 /* StreamVideoSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = C6AF27BE2F328C3B0014DC89 /* StreamVideoSwiftUI */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -60,10 +59,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C6AF27BF2F328C3B0014DC89 /* StreamVideoSwiftUI in Frameworks */,
+				C6AF27BD2F328C3B0014DC89 /* StreamVideo in Frameworks */,
 				C69453BD2F301D4000B84437 /* MWDATCamera in Frameworks */,
-				C69453C82F30200700B84437 /* StreamVideoUIKit in Frameworks */,
-				C69453C42F30200700B84437 /* StreamVideo in Frameworks */,
-				C69453C62F30200700B84437 /* StreamVideoSwiftUI in Frameworks */,
 				C69453BF2F301D4000B84437 /* MWDATCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -127,9 +125,8 @@
 			packageProductDependencies = (
 				C69453BC2F301D4000B84437 /* MWDATCamera */,
 				C69453BE2F301D4000B84437 /* MWDATCore */,
-				C69453C32F30200700B84437 /* StreamVideo */,
-				C69453C52F30200700B84437 /* StreamVideoSwiftUI */,
-				C69453C72F30200700B84437 /* StreamVideoUIKit */,
+				C6AF27BC2F328C3B0014DC89 /* StreamVideo */,
+				C6AF27BE2F328C3B0014DC89 /* StreamVideoSwiftUI */,
 			);
 			productName = rayban_agents;
 			productReference = C67DA04A2F30168F0087C603 /* rayban_agents.app */;
@@ -215,7 +212,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				C69453BB2F301D4000B84437 /* XCLocalSwiftPackageReference "../meta-wearables-dat-ios-0.3.0" */,
-				C69453C22F30200700B84437 /* XCLocalSwiftPackageReference "../stream-video-swift" */,
+				C6AF27BB2F328C3B0014DC89 /* XCRemoteSwiftPackageReference "stream-video-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C67DA04B2F30168F0087C603 /* Products */;
@@ -606,11 +603,18 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "../meta-wearables-dat-ios-0.3.0";
 		};
-		C69453C22F30200700B84437 /* XCLocalSwiftPackageReference "../stream-video-swift" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = "../stream-video-swift";
-		};
 /* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		C6AF27BB2F328C3B0014DC89 /* XCRemoteSwiftPackageReference "stream-video-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/GetStream/stream-video-swift.git";
+			requirement = {
+				branch = "nash/custom-video-track";
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		C69453BC2F301D4000B84437 /* MWDATCamera */ = {
@@ -621,20 +625,15 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = MWDATCore;
 		};
-		C69453C32F30200700B84437 /* StreamVideo */ = {
+		C6AF27BC2F328C3B0014DC89 /* StreamVideo */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = C69453C22F30200700B84437 /* XCLocalSwiftPackageReference "../stream-video-swift" */;
+			package = C6AF27BB2F328C3B0014DC89 /* XCRemoteSwiftPackageReference "stream-video-swift" */;
 			productName = StreamVideo;
 		};
-		C69453C52F30200700B84437 /* StreamVideoSwiftUI */ = {
+		C6AF27BE2F328C3B0014DC89 /* StreamVideoSwiftUI */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = C69453C22F30200700B84437 /* XCLocalSwiftPackageReference "../stream-video-swift" */;
+			package = C6AF27BB2F328C3B0014DC89 /* XCRemoteSwiftPackageReference "stream-video-swift" */;
 			productName = StreamVideoSwiftUI;
-		};
-		C69453C72F30200700B84437 /* StreamVideoUIKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = C69453C22F30200700B84437 /* XCLocalSwiftPackageReference "../stream-video-swift" */;
-			productName = StreamVideoUIKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
