@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import CoreImage
 import SwiftUI
 import Photos
 import MWDATCore
@@ -27,6 +28,13 @@ final class WearablesManager {
     private(set) var lastCaptureSaveResult: Bool?
     private(set) var streamStartError: Error?
 
+    // Non-UI frame delivery for encoder/sink path
+    var onFrameForSink: ((CIImage) -> Void)?
+
+    // Throttling for UI preview to reduce churn
+    private var previewFrameCounter = 0
+    private let previewFrameStride = 3 // update UI preview every 3 frames (~8 fps at 24 fps source)
+    
     // MARK: - Private Properties
     
     private var streamSession: StreamSession?
@@ -154,9 +162,20 @@ final class WearablesManager {
         }
 
         frameToken = session.videoFramePublisher.listen { [weak self] frame in
-            guard let image = frame.makeUIImage() else { return }
-            Task { @MainActor in
-                self?.latestFrame = image
+            // Prefer a direct CIImage path if available; fallback via UIImage -> CGImage -> CIImage
+            guard let uiImage = frame.makeUIImage(), let cg = uiImage.cgImage else { return }
+            let ci = CIImage(cgImage: cg)
+
+            // Push to sink path immediately (non-UI)
+            self?.onFrameForSink?(ci)
+
+            // Throttle UI preview updates to reduce observable churn
+            guard let self = self else { return }
+            self.previewFrameCounter &+= 1
+            if self.previewFrameCounter.isMultiple(of: self.previewFrameStride) {
+                Task { @MainActor in
+                    self.latestFrame = uiImage
+                }
             }
         }
 
@@ -207,6 +226,7 @@ final class WearablesManager {
             streamSession = nil
             isStreaming = false
             latestFrame = nil
+            previewFrameCounter = 0
         }
     }
 
@@ -301,3 +321,4 @@ final class WearablesManager {
         streamSession = nil
     }
 }
+

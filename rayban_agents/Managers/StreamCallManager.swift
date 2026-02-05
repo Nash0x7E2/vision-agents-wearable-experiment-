@@ -10,6 +10,7 @@ import Foundation
 import AVFoundation
 import StreamVideo
 import StreamVideoSwiftUI
+import MWDATCamera
 
 private struct StartSessionRequest: Encodable {
     let call_id: String
@@ -81,8 +82,7 @@ final class StreamCallManager {
     private var videoFilter: VideoFilter?
     private weak var wearablesManager: WearablesManager?
     private var wearableFrameSink: (any ExternalFrameSink)?
-    private var framePumpTask: Task<Void, Never>?
-
+    
     // MARK: - Initialization
 
     init() {}
@@ -104,10 +104,8 @@ final class StreamCallManager {
 
         let token = UserToken(rawValue: Secrets.streamUserToken)
 
-        let customProvider = ExternalVideoCapturerProvider { [weak self] frameSink in
-            Task { @MainActor in
-                self?.onWearableFrameSinkReady(frameSink)
-            }
+        let customProvider = ExternalVideoCapturerProvider { [weak weakSelf = self] frameSink in
+            StreamCallManager.handleFrameSinkOnMain(weakSelf: weakSelf, frameSink: frameSink)
         }
         let videoConfig = VideoConfig(customVideoCapturerProvider: customProvider)
 
@@ -147,22 +145,127 @@ final class StreamCallManager {
             )
             try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
             print("[Audio] Session configured: category=\(audioSession.category.rawValue), mode=\(audioSession.mode.rawValue)")
+            logAvailableAudioInputs(audioSession: audioSession)
             setPreferredInputToWearable(audioSession: audioSession)
-            try await Task.sleep(nanoseconds: 2 * NSEC_PER_SEC)
+            observeAudioRouteChanges()
         } catch {
             print("[Audio] Failed to configure audio session: \(error)")
             self.error = error
         }
     }
     
+    private func logAvailableAudioInputs(audioSession: AVAudioSession) {
+        guard let inputs = audioSession.availableInputs else {
+            print("[Audio] No available inputs")
+            return
+        }
+        print("[Audio] Available inputs (\(inputs.count)):")
+        for input in inputs {
+            print("[Audio]   - \(input.portName) (type: \(input.portType.rawValue), uid: \(input.uid))")
+            if let dataSources = input.dataSources, !dataSources.isEmpty {
+                for source in dataSources {
+                    print("[Audio]       data source: \(source.dataSourceName)")
+                }
+            }
+        }
+        if let currentRoute = audioSession.currentRoute.inputs.first {
+            print("[Audio] Current input route: \(currentRoute.portName) (type: \(currentRoute.portType.rawValue))")
+        }
+        if let currentOutput = audioSession.currentRoute.outputs.first {
+            print("[Audio] Current output route: \(currentOutput.portName) (type: \(currentOutput.portType.rawValue))")
+        }
+    }
+    
     private func setPreferredInputToWearable(audioSession: AVAudioSession) {
-        guard let inputs = audioSession.availableInputs else { return }
-        let wearable = inputs.first { $0.portType == .bluetoothHFP }
-        guard let wearable else { return }
+        guard let inputs = audioSession.availableInputs else {
+            print("[Audio] setPreferredInput: no available inputs")
+            return
+        }
+        
+        let bluetoothPortTypes: Set<AVAudioSession.Port> = [
+            .bluetoothHFP,
+            .bluetoothA2DP,
+            .bluetoothLE
+        ]
+        
+        let wearableKeywords = ["meta", "rayban", "ray-ban", "glasses"]
+        
+        var selectedInput: AVAudioSessionPortDescription?
+        
+        for input in inputs {
+            let portNameLower = input.portName.lowercased()
+            if wearableKeywords.contains(where: { portNameLower.contains($0) }) {
+                selectedInput = input
+                print("[Audio] Found wearable by name: \(input.portName)")
+                break
+            }
+        }
+        
+        if selectedInput == nil {
+            selectedInput = inputs.first { bluetoothPortTypes.contains($0.portType) }
+            if let sel = selectedInput {
+                print("[Audio] Found Bluetooth input: \(sel.portName) (type: \(sel.portType.rawValue))")
+            }
+        }
+        
+        guard let wearable = selectedInput else {
+            print("[Audio] No wearable/Bluetooth input found")
+            return
+        }
+        
         do {
             try audioSession.setPreferredInput(wearable)
+            print("[Audio] Set preferred input to: \(wearable.portName)")
+            
+            if let currentInput = audioSession.currentRoute.inputs.first {
+                print("[Audio] Verified current input: \(currentInput.portName) (type: \(currentInput.portType.rawValue))")
+            }
         } catch {
-            print("Failed to set preferred input to wearable: \(error)")
+            print("[Audio] Failed to set preferred input to wearable: \(error)")
+        }
+    }
+    
+    private func observeAudioRouteChanges() {
+        NotificationCenter.default.addObserver(
+            forName: AVAudioSession.routeChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            self?.handleAudioRouteChange(notification: notification)
+        }
+    }
+    
+    private func handleAudioRouteChange(notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
+              let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
+            return
+        }
+        
+        let audioSession = AVAudioSession.sharedInstance()
+        
+        print("[Audio] Route changed - reason: \(routeChangeReasonString(reason))")
+        logAvailableAudioInputs(audioSession: audioSession)
+        
+        switch reason {
+        case .newDeviceAvailable, .oldDeviceUnavailable, .override, .categoryChange:
+            setPreferredInputToWearable(audioSession: audioSession)
+        default:
+            break
+        }
+    }
+    
+    private func routeChangeReasonString(_ reason: AVAudioSession.RouteChangeReason) -> String {
+        switch reason {
+        case .unknown: return "unknown"
+        case .newDeviceAvailable: return "newDeviceAvailable"
+        case .oldDeviceUnavailable: return "oldDeviceUnavailable"
+        case .categoryChange: return "categoryChange"
+        case .override: return "override"
+        case .wakeFromSleep: return "wakeFromSleep"
+        case .noSuitableRouteForCategory: return "noSuitableRouteForCategory"
+        case .routeConfigurationChange: return "routeConfigurationChange"
+        @unknown default: return "unknown(\(reason.rawValue))"
         }
     }
     
@@ -193,15 +296,36 @@ final class StreamCallManager {
 
         do {
             print("[Stream] Joining call: \(callId) (type: \(callType))")
-            setPreferredInputToWearable(audioSession: AVAudioSession.sharedInstance())
+            let audioSession = AVAudioSession.sharedInstance()
+            setPreferredInputToWearable(audioSession: audioSession)
+            
             try await newCall.join(create: true, callSettings: callSettings)
             print("[Stream] Successfully joined call: \(callId)")
             print("[Stream] Participant count: \(newCall.state.participantCount ?? 0)")
             print("[Stream] Local participant ID: \(newCall.state.localParticipant?.id ?? "unknown")")
-            try await newCall.speaker.enableSpeakerPhone()
+            
+            do {
+                try await newCall.microphone.enable()
+                print("[Audio] Microphone enabled successfully")
+            } catch {
+                print("[Audio] Failed to enable microphone: \(error)")
+            }
+            
+            do {
+                try await newCall.speaker.enableSpeakerPhone()
+            } catch {
+                print("[Audio] Failed to enable speaker phone: \(error)")
+            }
             try? await newCall.speaker.enableAudioOutput()
-            setPreferredInputToWearable(audioSession: AVAudioSession.sharedInstance())
-            try? AVAudioSession.sharedInstance().setActive(true, options: .notifyOthersOnDeactivation)
+            try? audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+            
+            // Adjust input one more time after join
+            setPreferredInputToWearable(audioSession: audioSession)
+            
+            logAvailableAudioInputs(audioSession: audioSession)
+            print("[Audio] After call join - hasAudio: \(newCall.state.localParticipant?.hasAudio ?? false)")
+            print("[Audio] Microphone status - isEnabled: \(newCall.microphone.status.rawValue)")
+            
             await MainActor.run { [weak self] in
                 guard let this = self else { return }
                 this.isInCall = true
@@ -426,34 +550,30 @@ final class StreamCallManager {
         call?.setVideoFilter(filter)
     }
 
+
+    nonisolated private static func handleFrameSinkOnMain(weakSelf: StreamCallManager?, frameSink: some ExternalFrameSink) {
+        Task { @MainActor in
+            weakSelf?.onWearableFrameSinkReady(frameSink)
+        }
+    }
+
     // MARK: - Wearable Frame Pump
 
     private func onWearableFrameSinkReady(_ frameSink: some ExternalFrameSink) {
         wearableFrameSink = frameSink
-        startWearableFramePump()
-    }
-
-    private func startWearableFramePump() {
-        guard wearableFrameSink != nil, let wm = wearablesManager else { return }
-        framePumpTask?.cancel()
-        framePumpTask = Task { [weak self] in
-            while !Task.isCancelled {
-                guard let sink = self?.wearableFrameSink,
-                      let ciImage = wm.latestFrameAsCIImage,
-                      let pixelBuffer = WearableFramePump.makePixelBuffer(from: ciImage, resolution: wm.wearableVideoQuality)
-                else {
-                    try? await Task.sleep(nanoseconds: 33_000_000)
-                    continue
-                }
+        // Attach push-based frame forwarding from WearablesManager to the ExternalFrameSink
+        wearablesManager?.onFrameForSink = { [weak self] ciImage in
+            guard let self = self, let sink = self.wearableFrameSink else { return }
+            let quality = self.wearablesManager?.wearableVideoQuality ?? .low
+            if let pixelBuffer = WearableFramePump.makePixelBuffer(from: ciImage, resolution: quality) {
                 sink.pushFrame(pixelBuffer: pixelBuffer, rotation: .none)
-                try? await Task.sleep(nanoseconds: 33_000_000)
             }
         }
     }
 
     private func stopWearableFramePump() {
-        framePumpTask?.cancel()
-        framePumpTask = nil
+        // Detach push-based frame forwarding
+        wearablesManager?.onFrameForSink = nil
         wearableFrameSink = nil
     }
 
@@ -461,6 +581,7 @@ final class StreamCallManager {
 
     func disconnect() async {
         stopWearableFramePump()
+        NotificationCenter.default.removeObserver(self, name: AVAudioSession.routeChangeNotification, object: nil)
         if isInCall {
             await leaveCall()
         }
@@ -471,3 +592,4 @@ final class StreamCallManager {
         }
     }
 }
+
